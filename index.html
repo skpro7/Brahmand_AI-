@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brahmand Darbar – आपका चेहरा ही कुंजी है</title>
+    <title>Universe Magic - ब्रह्मांडीय चेहरा स्कैन</title>
     
     <!-- Tailwind, Three.js, GSAP, html2canvas, MediaPipe -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -38,19 +38,61 @@
             pointer-events: none;
         }
         
-        /* main UI layer */
+        /* main UI layer - with top padding to avoid camera overlap */
         .ui-main-wrapper {
             position: relative;
             z-index: 10;
-            height: 100vh;
-            overflow-y: auto;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
+            padding-top: 210px;   /* space for camera circle + margin */
             padding-bottom: 50px;
+            overflow-y: auto;
             scroll-behavior: smooth;
         }
         
+        /* Camera PIP window - fixed top-right, no overlap now */
+        #pip-window {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 2px solid var(--neon);
+            box-shadow: 0 0 20px rgba(0,242,255,0.7), 0 0 40px #4f46e5;
+            overflow: hidden;
+            z-index: 1000;
+            background: #000;
+            display: none; /* will show after camera starts */
+        }
+        
+        #pip-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* mirror */
+        }
+        
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--neon);
+            box-shadow: 0 0 10px var(--neon);
+            top: 0;
+            animation: scanMove 3s infinite linear;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        @keyframes scanMove {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+        
+        /* rest of the styles (glass, magic-btn, chat-bubble, etc.) unchanged */
         .glass {
             background: rgba(10, 20, 40, 0.8);
             backdrop-filter: blur(16px) saturate(180%);
@@ -113,7 +155,6 @@
             transition: all 0.2s;
             border: 1px solid transparent;
         }
-        
         .symbol-item:hover {
             background: rgba(255, 255, 255, 0.1);
             border-color: #ec4899;
@@ -130,7 +171,6 @@
             max-width: 420px;
             animation: cardGlow 2s infinite alternate;
         }
-        
         @keyframes cardGlow {
             0% { filter: drop-shadow(0 0 10px #ec4899); }
             100% { filter: drop-shadow(0 0 30px #4f46e5); }
@@ -166,46 +206,6 @@
         ::-webkit-scrollbar { width: 8px; background: transparent; }
         ::-webkit-scrollbar-thumb { background: #ec4899; border-radius: 20px; }
         
-        /* Floating PIP window (always visible) */
-        #pip-window {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            border: 2px solid var(--neon);
-            box-shadow: 0 0 20px rgba(0,242,255,0.7), 0 0 40px #4f46e5;
-            overflow: hidden;
-            z-index: 1000;
-            background: #000;
-            display: none; /* will show after camera starts */
-        }
-        
-        #pip-canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* mirror */
-        }
-        
-        .scan-line {
-            position: absolute;
-            width: 100%;
-            height: 2px;
-            background: var(--neon);
-            box-shadow: 0 0 10px var(--neon);
-            top: 0;
-            animation: scanMove 3s infinite linear;
-            z-index: 5;
-            pointer-events: none;
-        }
-        
-        @keyframes scanMove {
-            0% { top: 0%; }
-            100% { top: 100%; }
-        }
-        
         .scan-progress {
             width: 100%;
             height: 6px;
@@ -240,7 +240,7 @@
 <body>
     <div id="canvas-container"></div>
     
-    <!-- Floating PIP Camera (always on after grant) -->
+    <!-- Floating PIP Camera -->
     <div id="pip-window">
         <div class="scan-line"></div>
         <video id="input-video" class="hidden" playsinline></video>
@@ -248,14 +248,14 @@
     </div>
     
     <div class="ui-main-wrapper" id="scroll-wrapper">
-        <!-- Top Navigation -->
+        <!-- Top Navigation (now safely below camera) -->
         <div class="w-full max-w-2xl flex justify-between items-center p-6 sticky top-0 z-50 pointer-events-auto">
             <div class="glass px-5 py-2 flex items-center gap-2 border border-indigo-500/30">
                 <span class="text-yellow-400 text-xl">✨</span>
                 <span id="star-count" class="font-bold text-indigo-200">250</span>
             </div>
             <h1 class="text-xl font-bold tracking-tighter bg-gradient-to-r from-indigo-300 to-pink-300 bg-clip-text text-transparent">
-                ॐ BRAHMAND DARBAR
+                ॐ UNIVERSE MAGIC
             </h1>
             <div class="glass px-5 py-2 border border-pink-500/30">
                 <span class="text-[12px] uppercase font-bold text-pink-400 tracking-widest">Neural AI</span>
@@ -299,20 +299,61 @@
     
     <script>
         (function() {
-            // ---------- SYMBOL DESCRIPTIONS (shortened for brevity, full set works) ----------
+            // ---------- FULL SYMBOL DESCRIPTIONS (as in original, with all emojis and lines) ----------
             const symbolDescriptions = {
-                "💎": ["मिट्टी के सीने में दबी कोई सख्त जान...", "जैसे रोशनी का कोई कतरा...", "अंधेरे में एक ऐसी चमक...", "एक अनमोल एहसास...", "तुमने सोचा था हीरा 💎।"],
-                "🔥": ["हवा में बेचैनी...", "हथेलियों में गर्माहट...", "अंधेरे को चीरती लकीर...", "ऊर्जा जो नया जन्म दे...", "तुम आग 🔥 में खोए थे।"],
-                "🌙": ["गहरी खामोशी...", "चाँदनी की ठंडी परत...", "सुकून भरी परछाईं...", "शांत झील में चेहरा...", "तुमने चाँद 🌙 सोचा था।"],
-                "⭐": ["दूर एक हलचल...", "उम्मीद जाग रही...", "अकेली रौशनी...", "पलकों में टिमटिमाहट...", "वो सितारा ⭐ था।"],
-                "🌊": ["नमकीन सी महक...", "गहरा उतार-चढ़ाव...", "बहती हुई...", "नीली गहराई...", "तुम समुद्र 🌊 में थे।"],
-                "🕉️": ["शून्य से कंपन...", "बिन बोले ध्वनि...", "पवित्रता का एहसास...", "चक्र स्थिर...", "तुम ॐ 🕉️ में खोए थे।"],
-                "🔱": ["तीन दिशाओं से शक्ति...", "विनाश और सृजन...", "प्राचीन गर्जना...", "काल को वश...", "तुम्हारे मन में त्रिशूल 🔱 था।"]
+                "💎": ["मिट्टी के सीने में दबी कोई सख्त जान... जो वक्त की मार से नहीं टूटती।","जैसे रोशनी का कोई कतरा रास्ता भटक कर किसी शीशे में कैद हो गया हो।","अंधेरे में एक ऐसी चमक, जो आँखों को नहीं, रूह को चुभ रही है...","एक अनमोल एहसास, जो बहुत दबाव और तपिश के बाद बाहर आया है।","तुमने सोचा था किसी अनमोल चीज़ के बारे में... और वो था हीरा 💎।"],
+                "🔥": ["हवा में अचानक एक बेचैनी सी है... जैसे कोई चीज़ सुलग रही हो।","हथेलियों के बीच एक अदृश्य गर्माहट बढ़ती जा रही है, महसूस करो।","अंधेरे को चीरती हुई एक नारंगी लकीर तुम्हारी तरफ बढ़ रही है...","एक ऐसी ऊर्जा जो सब कुछ मिटाकर नया जन्म देने की ताकत रखती है।","तुम आग की लपटों में खोए हुए थे... यह अग्नि 🔥 ही तुम्हारा विचार था।"],
+                "🌙": ["चारों ओर एक गहरी खामोशी छा गई है... जैसे वक्त ठहर गया हो।","चाँदनी की एक ठंडी परत तुम्हारे मन को छूकर गुज़र रही है।","सूरज की चकाचौंध से दूर, एक सुकून भरी परछाईं उभर रही है...","किसी शांत झील के पानी में कोई चेहरा साफ़ दिखने लगा है।","तुमने चाँद के बारे में सोचा था... वही शीतलता, वही सुकून, चाँद 🌙।"],
+                "⭐": ["बहुत दूर, ऊँचाई पर एक छोटी सी हलचल महसूस हो रही है।","अंधेरे में एक रास्ता दिखाने वाली कोई उम्मीद सी जाग रही है...","एक ऐसी रौशनी जो अकेली है, पर पूरी कायनात को रास्ता दे सकती है।","तुम्हारी पलकों के झपकते ही कुछ टिमटिमाया है, बहुत करीब।","तुम किसी चमकती चीज़ पर टिके थे... वो सितारा ⭐ ही था।"],
+                "🌊": ["हवा में एक नमकीन सी महक घुली है... जैसे लहरों का शोर।","एक गहरा उतार-चढ़ाव, जो अंदर ही अंदर शोर मचा रहा है।","कोई चीज़ जो रुकना नहीं जानती, बस बहती जा रही है...","तुम्हारी रूह में एक नीली गहराई का साया गहरा होता जा रहा है।","तुम समुद्र की लहरों के साथ बह रहे थे... और वो है 🌊।"],
+                "🕉️": ["ब्रह्मांड के शून्य से एक कंपन शुरू हुआ है... सुनो उसे।","एक ऐसी ध्वनि जो बिना बोले ही सब कुछ कह जाती है...","हवा में एक पवित्रता का एहसास है, जैसे कोई पुरानी इबादत।","सारे चक्र एक केंद्र पर आकर स्थिर हो गए हैं, ध्यान लगाओ।","तुम ॐ की ध्वनि में खो गए थे... यह पवित्र ॐ 🕉️ तुम्हारा विचार था।"],
+                "🔱": ["तीन दिशाओं से एक शक्ति आकर तुम्हारे सामने ठहर गई है।","विनाश और सृजन का एक अनोखा संगम महसूस हो रहा है...","हवा में एक प्राचीन गर्जना है, जैसे कोई रक्षक खड़ा हो।","एक ऐसी सत्ता जो काल को भी वश में करने की क्षमता रखती है।","तुम्हारे मन में शिवजी का वो अस्त्र था... त्रिशूल 🔱।"],
+                "🐉": ["एक विशाल साया तुम्हारे चारों ओर चक्कर लगा रहा है...","सदियों पुरानी कहानियों की एक खौफनाक परछाईं सच हो रही है।","आग की एक सांस महसूस हुई, पर उसमें जलन नहीं, एक गर्व है।","रहस्य और ताकत का एक ऐसा रूप जो इंसानी समझ से परे है...","तुम किसी प्राचीन शक्ति के बारे में सोच रहे थे... ड्रैगन 🐉।"],
+                "🦋": ["हवा में पंखों की एक बेहद कोमल सरसराहट महसूस हो रही है।","पुराने खोल टूट रहे हैं... कुछ नया, कुछ रंगीन जन्म ले रहा है।","हल्कापन इतना कि तुम हवा के साथ तैरने लगे हो...","बदलाव की एक ऐसी लहर, जो खामोशी से सब बदल देती है।","तुम तितली की तरह बदलाव की कल्पना कर रहे थे... वही है 🦋।"],
+                "🧿": ["एक नीली चमक तुम्हें लगातार देख रही है... पर डराने के लिए नहीं।","हवा में एक सुरक्षा कवच सा खिंच गया है, कोई दीवार खड़ी है।","बुरी नज़रें टकराकर वापस लौट रही हैं, कोई तुम्हारा पहरा दे रहा है...","एक ऐसी नज़र जो सच और झूठ के पार देख लेती है।","तुमने नज़र से बचने की सोची... और यही सुरक्षा है, नज़र 🧿।"],
+                "🍀": ["हरियाली की एक महक... जैसे ताज़ा बारिश के बाद की मिट्टी।","लाखों में कोई एक चीज़ जो अचानक तुम्हारे करीब आ गई है।","किस्मत के दरवाज़े पर एक हल्की सी दस्तक महसूस हो रही है...","एक दुर्लभ एहसास, जो केवल उनके पास आता है जिनके दिल साफ़ हों।","तुम किस्मत के बारे में सोच रहे थे... यही है भाग्यशाली क्लोवर 🍀।"],
+                "🌞": ["अंधेरा धीरे-धीरे छंट रहा है... एक नई सुबह की आहट है।","गर्मी बढ़ रही है, जैसे सारी ऊर्जा एक केंद्र पर सिमट गई हो।","चेहरे पर एक सुनहरी चमक महसूस हो रही है, अपनी आँखें खोलो...","वो शक्ति जो पूरी दुनिया को जीवन देती है, आज तुम्हारे साथ है।","तुम सूरज की रौशनी में खोए थे... और वो है सूरज 🌞।"],
+                "🌀": ["सब कुछ गोल घूम रहा है... जैसे वक्त का कोई भँवर।","केंद्र की ओर एक खिंचाव है, जो तुम्हें गहराई में ले जा रहा है।","एक ऐसा चक्र जिसका न कोई अंत है और न कोई शुरुआत...","हवा में एक उलझन है, पर उसी में सारा जवाब छिपा है।","तुम भंवर में फंसे हुए थे... यह चक्र है, भंवर 🌀।"],
+                "🌋": ["ज़मीन के बहुत नीचे एक हलचल है... कंपन महसूस करो।","दबी हुई भावनाओं का एक सैलाब बाहर आने को तड़प रहा है।","एक खामोश पर्वत, जिसके अंदर आग का दरिया बह रहा है...","धुआँ उठने लगा है, अब धमाका होने ही वाला है।","तुम ज्वालामुखी के फटने की कल्पना कर रहे थे... और वही है 🌋।"],
+                "🌈": ["तूफान थम गया है, हवा में एक सुकून भरी नमी है।","एक के बाद एक, कई रंग धीरे-धीरे उभरने लगे हैं...","दो किनारों को जोड़ने वाला एक जादुई पुल सा बन रहा है।","खुशियाँ अब बिखरी हुई नहीं, एक कतार में सजी दिख रही हैं।","तुमने इंद्रधनुष देखा था... और वही तुम्हारा प्रतीक है 🌈।"],
+                "🕊️": ["शोर अचानक थम गया है... एक अजब सी शांति महसूस हो रही है।","सफेद पंखों का एक गुच्छा हवा में धीरे-धीरे नीचे गिर रहा है।","किसी पैगाम के आने की आहट है, जो दिल को सुकून देगी...","आज़ाद उड़ने की एक ऐसी चाह जो सरहदों को नहीं मानती।","तुम शांति के उस पंछी को याद कर रहे थे... कबूतर 🕊️।"],
+                "🛡️": ["एक भारी धातु के टकराने की आवाज़ गूँजी है... रक्षा के लिए।","कोई भी हमला तुम्हें छू नहीं पाएगा, एक सुरक्षा घेरा बन गया है।","निडरता तुम्हारे चारों ओर एक दीवार बनकर खड़ी हो गई है...","एक ऐसा कवच जिसे तोड़ने की ताकत किसी दुश्मन में नहीं।","तुम ढाल के पीछे सुरक्षित थे... और वो है यह ढाल 🛡️।"],
+                "🕯️": ["अंधेरे के बीच एक नन्हीं सी लौ कांप रही है... देखो उसे।","एक ऐसी उम्मीद जो पिघल कर भी रौशनी देना नहीं छोड़ती।","खुशबूदार मोम की तरह यादें धीरे-धीरे बह रही हैं...","तुम्हारे मन के कोने में एक पवित्र प्रार्थना जल उठी है।","तुमने उम्मीद की रौशनी जलाई... और वो है दीपक 🕯️।"],
+                "⚡": ["एक सेकंड के लिए सब कुछ सफेद हो गया... एक झटका सा लगा।","नसों में दौड़ता हुआ एक करंट, जैसे बिजली कौंध गई हो।","पलक झपकते ही सब कुछ बदलने वाली एक प्रचंड शक्ति...","आसमान से ज़मीन तक एक आग की लकीर खिंच गई है।","तुम बिजली की चमक देख रहे थे... और वही है ⚡।"],
+                "🪔": ["मिट्टी की सौंधी खुशबू और घी की महक का आभास हो रहा है।","अंधेरा लाख कोशिश करे, पर इस छोटी सी रौशनी को नहीं बुझा सकता।","तुम्हारे घर के आँगन में कोई शुभ आशीर्वाद उतर रहा है...","एक पारंपरिक चमक, जो पीढ़ी दर पीढ़ी चली आ रही है।","तुमने दीया जलाने की सोची... यही है वह पवित्र दीया 🪔।"],
+                "🌺": ["कीचड़ के बीच भी जो अपनी पवित्रता नहीं खोता, वो उभर रहा है।","कोमल पंखुड़ियों के पीछे एक बेहद मज़बूत इरादा छिपा है।","ध्यान की अवस्था में एक खिलता हुआ रूप साफ़ दिख रहा है...","किसी दिव्य शक्ति के चरणों में चढ़ाया गया श्रद्धा का फूल।","तुम कमल के फूल की तरह खिले हुए थे... वही है 🌺।"],
+                "📿": ["उँगलियों के बीच दानों के सरकने की आवाज़ आ रही है... ध्यान दो।","एक नाम, जो बार-बार दोहराया जा रहा है, हवा में गूँज रहा है।","आध्यात्मिक खोज की एक लंबी कड़ी तुम्हारे गले से लग रही है...","मन का हर मनका एक गहरी सच्चाई की ओर ले जा रहा है।","तुम माला जप रहे थे... और यही है वह पवित्र माला 📿।"],
+                "🧘": ["साँसों की गति धीमी हो रही है... मन अब ठहरने लगा है।","एक स्थिर आकृति, जो पत्थर की तरह अचल है पर भीतर से जीवित।","दुनिया का शोर अब तुम्हें छू भी नहीं पा रहा, सब शांत है...","भीतर की यात्रा शुरू हो चुकी है, शून्य की ओर कदम बढ़ रहे हैं।","तुम ध्यान की मुद्रा में बैठे थे... और वो है योगी 🧘।"],
+                "🦚": ["नीले और सुनहरे रंगों का एक अद्भुत नृत्य शुरू हो गया है।","घटाएँ घिरी हैं और कोई अपनी पूरी शान के साथ पंख फैला रहा है।","सुंदरता और गर्व का एक ऐसा संगम, जो बिरलों को ही मिलता है...","जैसे कृष्ण की मुरली पर कोई जंगल में झूम उठा हो।","तुम मोर के पंखों में खोए थे... और वही है मोर 🦚।"],
+                "🐚": ["गहरे पानी के नीचे से एक गूँजती हुई पुकार आ रही है।","शुभ कार्यों के शुरू होने का एक दिव्य संगीत सुनाई दिया है।","नकारात्मक ऊर्जा हवा में बिखर कर दूर जा रही है...","भगवान विष्णु के हाथ की वो शक्ति, जो विजय का प्रतीक है।","तुमने शंख की ध्वनि सुनी... और यही वह शंख है 🐚।"],
+                "♾️": ["एक ऐसा रास्ता, जहाँ से शुरू करो वहीं वापस आ जाते हो।","समय की सीमाएँ टूट रही हैं, न कोई अंत है न कोई आदि।","दो रूहों का वो बंधन, जो जन्मों-जन्मों तक खत्म नहीं होता...","ब्रह्मांड की सबसे बड़ी पहेली, जो एक लूप में कैद है।","तुम अनंत के बारे में सोच रहे थे... और यही है अनंत ♾️।"],
+                "🌟": ["अंधेरे आसमान में एक ज़ोरदार धमाका हुआ है... रौशनी का।","शोहरत और कामयाबी की एक दिव्य लकीर खिंच गई है।","दुनिया की हज़ारों आँखों की नज़र तुम पर ठहर गई है...","एक ऐसा नूर, जो साधारण को भी खास बना दे।","तुम चमकते सितारे की कल्पना कर रहे थे... और वही है 🌟।"],
+                "🪄": ["एक लकड़ी की छड़ी हवा में कुछ अजीब से नक्श बना रही है।","इरादों के पक्के होते ही हकीकत बदलने का मंज़र दिख रहा है।","मुमकिन और नामुमकिन के बीच का परदा अब हटने वाला है...","तुम्हारी सोच में वो ताक़त है जो मिट्टी को सोना कर दे।","तुम जादू की छड़ी घुमा रहे थे... और यही है वह 🪄।"],
+                "🌌": ["अरबों प्रकाश वर्ष दूर का कोई मंज़र आँखों के सामने है।","तारों की धूल और अनगिनत रहस्यों का एक समंदर बह रहा है।","तुम इस छोटे से संसार का हिस्सा नहीं, पूरे ब्रह्मांड के अंश हो...","वो विशाल खामोशी, जिसमें सब कुछ समाया हुआ है।","तुम आकाशगंगा में खो गए थे... और वही है यह 🌌।"],
+                "🐍": ["रीढ़ की हड्डी के पास एक कुंडलीनुमा ऊर्जा जाग रही है।","खामोश बैठा है, पर ज़रा सी आहट पर फन उठा सकता है।","पुराने जिस्म को त्याग कर नया रूप धरने की कला जानती है ये शक्ति।","ज्ञान का वो प्राचीन रहस्य, जो ज़मीन के नीचे रेंगता है...","तुम साँप की कुंडलित शक्ति को महसूस कर रहे थे... यही है 🐍।"],
+                "🦅": ["बादलों के बहुत ऊपर, कोई अपनी तेज़ नज़रों से देख रहा है।","तूफानों से डरना नहीं, बल्कि उन पर सवार होना इसकी फितरत है।","नीचे की छोटी-छोटी बातें अब तुम्हें धुंधली लगने लगी हैं...","आज़ादी का वो परचम, जो सिर्फ ऊंचाइयों पर लहराता है।","तुम चील की तरह ऊँची उड़ान भर रहे थे... और वही है 🦅।"],
+                "⛰️": ["सदियों से खड़ा एक ऐसा धैर्य, जिसे कोई हिला नहीं सका।","आसमान को छूने की ज़िद, पर पैर मिट्टी में मजबूती से जमे हैं।","हवाएँ टकराकर लौट जाती हैं, पर ये अपनी जगह से नहीं हटता...","तुम्हारी दृढ़ता का वो रूप, जो वक्त के साथ और निखरेगा।","तुम पर्वत की तरह अडिग थे... और वही है यह पर्वत ⛰️।"],
+                "🔮": ["एक कांच के गोले के भीतर धुंध धीरे-धीरे छंट रही है।","वक्त के पार देखने वाली एक तीसरी नज़र खुल रही है...","जो कल होने वाला है, उसका अक्स आज ही नज़र आने लगा है।","रहस्यों का वो पिटारा, जो सिर्फ पारखी नज़रों के लिए खुलता है।","तुम क्रिस्टल बॉल में भविष्य ढूंढ रहे थे... और वही है 🔮।"],
+                "🌿": ["सूखी ज़मीन को चीर कर एक नन्हीं सी कोपल बाहर आ रही है।","धीमी लेकिन लगातार बढ़ने वाली एक ताकत महसूस हो रही है।","प्रकृति का वो आशीर्वाद, जो जीवन को हरा-भरा रखता है...","जैसे कोई नया रिश्ता या नया विचार जड़ पकड़ रहा हो।","तुम हरियाली के बारे में सोच रहे थे... और यह पौधा 🌿 है।"],
+                "🪐": ["हवा में एक भारी अनुशासन और न्याय का अनुभव हो रहा है।","छल्लों के घेरे में कैद एक विशाल रहस्य घूम रहा है...","कर्मों का हिसाब रखने वाली एक दैवीय शक्ति का साया है।","समय का पहिया अपनी धुरी पर बहुत गंभीरता से चल रहा है।","तुम शनि ग्रह के छल्लों में खोए थे... और वही है 🪐।"],
+                "⚓": ["गहरे पानी में एक भारी वज़न ज़मीन को तलाश रहा है।","उफनती लहरों के बीच भी जो तुम्हें भटकने नहीं देगा।","भरोसे और उम्मीद की एक ऐसी कील, जो रूह में गड़ गई है...","मंज़िल मिल गई है, अब और भटकने की ज़रूरत नहीं।","तुम लंगर की तरह स्थिर थे... और यही है वह लंगर ⚓।"],
+                "🪶": ["हवा के झोंके के साथ एक बेहद हल्की चीज़ तैर रही है।","सच का बोझ इतना कम है कि वो पंख की तरह उड़ सकता है।","किसी फरिश्ते के पंख का एक टुकड़ा तुम्हारे पास आ गिरा है...","पवित्रता और कोमलता का एक ऐसा रूप जो सबको भा जाए।","तुम पंख की तरह हल्के थे... और वही है यह पंख 🪶।"],
+                "☄️": ["आसमान में अचानक एक आग की लकीर खिंची और ओझल हो गई।","एक ऐसा संयोग, जो सदियों में सिर्फ एक बार होता है।","बदलाव की वो तेज़ी, जिसे रोकना किसी के बस में नहीं...","किस्मत का वो मोड़, जो पलक झपकते ही सब बदल देगा।","तुम धूमकेतु की तरह तेज़ थे... और वही है ☄️।"],
+                "🧬": ["एक पेचीदा सी सीढ़ी, जिसमें पूरी ज़िंदगी का कोड छिपा है।","पूर्वजों की यादें और तुम्हारी पहचान एक साथ गुंथी हुई हैं।","विज्ञान और कुदरत का वो मेल, जो तुम्हें 'तुम' बनाता है...","हर कोशिका में एक जादुई कहानी लिखी हुई है।","तुम डीएनए के सर्पिल में खोए थे... और वही है 🧬।"],
+                "🗝️": ["पुरानी धातु की एक चीज़, जो किसी बंद दरवाज़े का इंतज़ार कर रही है।","तुम्हारे हाथ में वो राज़ है, जो बंद किस्मत को खोल सकता है।","सवालों के ढेर में एक अकेला जवाब मिल गया है...","जैसे कोई पुरानी पहेली अब सुलझने वाली हो।","तुम चाबी से कोई ताला खोलना चाहते थे... और यही है वह चाबी 🗝️।"],
+                "👁️": ["एक पलक झपकी और सारा मंज़र बदल गया... कोई देख रहा है।","दिखावे के पीछे जो छिपा है, उस पर एक पैनी नज़र टिकी है।","मन की आँखों से वो देखो, जो साधारण आँखें नहीं देख पातीं...","सच्चाई का वो आईना, जिसे झुठलाया नहीं जा सकता।","तुम किसी की नज़रों में खोए थे... और वह आँख 👁️ ही थी।"],
+                "🌪️": ["सब कुछ गोल-गोल घूम रहा है, एक अजीब सी अफरा-तफरी है।","हवा का एक प्रचंड झोंका, जो पुराने ढांचों को गिरा रहा है।","क्रांति और बदलाव का वो तूफान, जो विनाश में भी सृजन छिपाए है...","एक ऐसी ताकत, जिसे कोई दिशा नहीं दी जा सकती।","तुम बवंडर के बीच में थे... और यही है वह तूफान 🌪️۔"],
+                "💫": ["सिर के चारों ओर एक सुनहरी लकीर सी खिंच रही है।","जैसे कोई जादुई सितारा रास्ता भटक कर तुम्हारे पास आ गया हो।","एक खुशनुमा एहसास, जो दिमाग को सुकून की ऊँचाइयों पर ले जाए...","ब्रह्मांडीय ऊर्जा का एक छोटा सा टुकड़ा, जो तुम्हारे साथ है।","तुम चमकते नक्षत्र में खोए थे... और यही है 💫۔"],
+                "🕰️": ["टिक-टिक की एक धीमी आवाज़ दिल की धड़कन से मिल रही है।","बीता हुआ कल और आने वाला पल, दोनों एक ही सुई पर टिके हैं।","इंतज़ार अब खत्म होने वाला है, घड़ी की सुइयां मिल रही हैं...","अनुभवों का वो संग्रह, जो तुमने वक्त के साथ कमाया है।","तुम समय के बारे में सोच रहे थे... और यह घड़ी 🕰️ है۔"],
+                "⌛": ["रेत का एक-एक दाना धीरे-धीरे नीचे गिर रहा है... ठहर जाओ।","हर गिरता दाना एक बीतती हुई याद की गवाही दे रहा है।","वक्त की रेत को मुट्ठी में कैद करना नामुमकिन है...","धैर्य रखो, क्योंकि जब आखिरी दाना गिरेगा, तभी चमत्कार होगा۔","तुम बालू घड़ी में समय बीतता देख रहे थے... और यही है ⌛۔"],
+                "🔔": ["एक पवित्र गूँज उठी है, जो रूह को झकझोर रही है۔","जैसे किसी मंदिर के द्वार पर दस्तक दी गई हो۔","हवा में एक ऐसी तरंग फैली है, जो सोए हुए को जगा दे...","आसपास की सारी बुरी शक्तियाँ इस आवाज़ से डर कर भाग रही हैं۔","तुम घंटी की आवाज़ सुन रहे थے... और यही है वह घंटी 🔔۔"],
+                "📯": ["एक लंबी और गहरी आवाज़, जो पूरे मैदान में गूँज उठी है।","युद्ध के नाद जैसा कुछ, जो जीत का ऐलान कर रहा है।","तुम्हारी पहचान अब और छिपी नहीं रहेगी, घोषणा होने वाली है...","एक पुरानी परंपरा, जो वीरों का स्वागत करती है।","तुम भोंपू की आवाज़ सुनकर सिहर उठे थے... और यही है 📯۔"]
             };
+            
             const symbols = Object.keys(symbolDescriptions);
-            let forceSymbol = symbols[0]; // will be set during chart
-
-            // ---------- Number trick states ----------
+            let forceSymbol = symbols[0];
+            
+            // Number trick states
             const states = [
                 { msg: "अपने मन में 10 से 99 के बीच कोई भी एक नंबर सोचें। धीरे-धीरे...", btn: "सोच लिया!" },
                 { msg: "अब उस नंबर के दोनों अंकों को जोड़ें, और जो आए उसे अपने मुख्य नंबर से घटा दें। (जैसे 25 → 2+5=7, 25-7=18)", btn: "कर लिया, आगे क्या?" },
@@ -320,8 +361,8 @@
                 { msg: "अब उस सिंबल की कल्पना करें। कैमरे में सीधे देखें – मैं 8 सेकंड आपके चेहरे को स्कैन करूंगा।", btn: "AI, मेरा सच बताओ!" }
             ];
             let currentState = -1;
-
-            // ---------- UI elements ----------
+            
+            // UI elements
             const genieChat = document.getElementById('genie-chat');
             const optionsContainer = document.getElementById('options-container');
             const startBtn = document.getElementById('start-btn');
@@ -332,17 +373,16 @@
             const videoElement = document.getElementById('input-video');
             const canvasElement = document.getElementById('pip-canvas');
             const canvasCtx = canvasElement.getContext('2d');
-
-            // ---------- Face scan globals ----------
+            
+            // Face scan globals
             let faceMesh = null;
             let cameraObj = null;
-            let scanTimer = null;
             let faceDetectedStartTime = null;
             const REQUIRED_SECONDS = 8;
             let scanSuccessful = false;
-            let scanningActive = false; // becomes true only at final step
-
-            // ---------- Three.js background ----------
+            let scanningActive = false;
+            
+            // Three.js background
             let scene, camera, renderer, crystal, particles;
             function init3D() {
                 scene = new THREE.Scene();
@@ -374,16 +414,14 @@
                 particles.rotation.y += 0.0005;
                 renderer.render(scene, camera);
             }
-
-            // ---------- Start camera immediately on page load ----------
+            
+            // Start camera immediately on load
             async function initCamera() {
                 try {
-                    // Request permission and show PIP
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     videoElement.srcObject = stream;
                     pipWindow.style.display = 'block';
                     
-                    // Initialize FaceMesh
                     faceMesh = new FaceMesh({
                         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
                     });
@@ -395,7 +433,6 @@
                     });
                     faceMesh.onResults(onFaceResults);
                     
-                    // Start camera processing
                     cameraObj = new Camera(videoElement, {
                         onFrame: async () => {
                             if (faceMesh) await faceMesh.send({image: videoElement});
@@ -407,29 +444,22 @@
                     
                     genieChat.innerText = "कैमरा चालू है। अब 'जादू शुरू करें' दबाएँ।";
                 } catch (err) {
-                    console.error(err);
                     genieChat.innerText = "❌ कैमरा नहीं चल पाया। कृपया अनुमति दें और पेज रिफ्रेश करें।";
                     optionsContainer.innerHTML = `<button onclick="location.reload()" class="magic-btn py-4 px-8">पुनः प्रयास करें</button>`;
                 }
             }
-
-            // ---------- Face results handler (draws mesh) ----------
+            
             function onFaceResults(results) {
                 if (!canvasElement || !canvasCtx) return;
-                
-                // Set canvas dimensions once
                 if (canvasElement.width !== (results.image?.width || 640)) {
                     canvasElement.width = results.image?.width || 640;
                     canvasElement.height = results.image?.height || 480;
                 }
-                
                 canvasCtx.save();
                 canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
                 if (results.image) {
                     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
                 }
-                
-                // Draw mesh if face detected
                 if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                     for (const landmarks of results.multiFaceLandmarks) {
                         drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#00f2ff33', lineWidth: 0.5});
@@ -437,24 +467,19 @@
                         drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#00f2ff', lineWidth: 1});
                         drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#00f2ff', lineWidth: 1});
                     }
-                    
-                    // If we are in scanning mode (final step), update timer
                     if (scanningActive) {
                         const progressFill = document.getElementById('scan-progress-fill');
                         const scanHint = document.getElementById('scan-hint');
-                        
                         if (faceDetectedStartTime === null) {
                             faceDetectedStartTime = Date.now();
                         } else {
                             const elapsed = (Date.now() - faceDetectedStartTime) / 1000;
                             const percent = Math.min(100, (elapsed / REQUIRED_SECONDS) * 100);
                             if (progressFill) progressFill.style.width = percent + '%';
-                            
                             if (elapsed >= REQUIRED_SECONDS && !scanSuccessful) {
                                 scanSuccessful = true;
                                 scanningActive = false;
                                 if (scanHint) scanHint.innerText = "✅ स्कैन पूरा! रहस्य खुल रहा है...";
-                                // Proceed to magical reveal
                                 proceedToReveal();
                             } else {
                                 if (scanHint) scanHint.innerText = `स्थिर रहें... ${elapsed.toFixed(1)}/${REQUIRED_SECONDS} सेकंड`;
@@ -462,9 +487,7 @@
                         }
                     }
                 } else {
-                    // No face detected
                     if (scanningActive) {
-                        // Reset timer
                         faceDetectedStartTime = null;
                         const progressFill = document.getElementById('scan-progress-fill');
                         if (progressFill) progressFill.style.width = '0%';
@@ -474,15 +497,13 @@
                 }
                 canvasCtx.restore();
             }
-
-            // ---------- UI flow: next step ----------
+            
             function nextStep() {
                 currentState++;
                 if (currentState < states.length) {
                     const step = states[currentState];
                     genieChat.innerText = step.msg;
                     optionsContainer.innerHTML = '';
-                    
                     if (step.showChart) {
                         scrollHint.classList.remove('hidden');
                         forceSymbol = symbols[Math.floor(Math.random() * symbols.length)];
@@ -491,7 +512,6 @@
                         for(let i=1; i<=99; i++) {
                             const item = document.createElement('div');
                             item.className = 'symbol-item';
-                            // All multiples of 9 get the forced symbol
                             const sym = (i % 9 === 0) ? forceSymbol : symbols[Math.floor(Math.random() * symbols.length)];
                             item.innerHTML = `<span class="text-[9px] font-bold text-indigo-400/60">${i}</span><span class="text-lg">${sym}</span>`;
                             grid.appendChild(item);
@@ -501,7 +521,6 @@
                     } else {
                         scrollHint.classList.add('hidden');
                     }
-                    
                     const btn = document.createElement('button');
                     btn.className = 'magic-btn py-4 px-8 rounded-2xl font-bold text-white w-full text-sm uppercase tracking-widest';
                     btn.innerText = step.btn;
@@ -509,13 +528,11 @@
                     optionsContainer.appendChild(btn);
                     gsap.fromTo(genieChat, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 });
                 } else {
-                    // Final step: start face scan timer
                     startFinalScan();
                 }
             }
-
+            
             function startFinalScan() {
-                // Update UI to show progress
                 genieChat.innerText = "अब 8 सेकंड तक कैमरे में सीधे देखें...";
                 optionsContainer.innerHTML = `
                     <div class="flex flex-col items-center gap-4 py-6 w-full">
@@ -532,15 +549,12 @@
                     optionsContainer.innerHTML = `<div class="text-pink-400 p-4">स्कैन रद्द। पुनः प्रयास के लिए पेज रिफ्रेश करें।</div>`;
                     genieChat.innerText = "जादू टूट गया...";
                 };
-                
-                // Reset timer variables
                 faceDetectedStartTime = null;
                 scanSuccessful = false;
                 scanningActive = true;
             }
-
+            
             function proceedToReveal() {
-                // Hide scanning UI, show visionary lines
                 const allLines = symbolDescriptions[forceSymbol] || [
                     "एक धुंधली सी आकृति...", "यह तुम हो...", "थोड़ा और ध्यान...", "यह बहुत पुराना है...",
                     "अब बिल्कुल साफ़ – तुमने यही सोचा था: " + forceSymbol
@@ -548,14 +562,12 @@
                 const firstLineIndex = Math.floor(Math.random() * 4);
                 const linesToShow = [allLines[firstLineIndex], allLines[4]];
                 
-                // Create vision container
                 const visionDiv = document.createElement('div');
                 visionDiv.id = "vision-container";
                 visionDiv.className = "w-full max-w-md glass p-8 rounded-3xl mx-auto space-y-6 text-left border border-indigo-500/30";
                 optionsContainer.innerHTML = '';
                 optionsContainer.appendChild(visionDiv);
                 
-                // First line after 2 sec
                 setTimeout(() => {
                     const lineEl = document.createElement('div');
                     lineEl.className = `vision-line flex gap-4 items-start text-xl leading-relaxed`;
@@ -565,7 +577,6 @@
                     createSparkle();
                 }, 2000);
                 
-                // Second line after 10 more sec
                 setTimeout(() => {
                     const lineEl = document.createElement('div');
                     lineEl.className = `vision-line flex gap-4 items-start text-xl leading-relaxed`;
@@ -576,7 +587,6 @@
                     for (let i=0; i<10; i++) setTimeout(createSparkle, i*80);
                 }, 12000);
                 
-                // Final symbol after another 2 sec
                 setTimeout(() => {
                     const finalLine = document.createElement('div');
                     finalLine.className = "vision-line text-center text-pink-400 font-bold text-3xl pt-8 border-t-2 border-white/20 mt-6";
@@ -587,7 +597,6 @@
                     for (let i=0; i<30; i++) setTimeout(createSparkle, i*50);
                 }, 14000);
                 
-                // Final magic card
                 setTimeout(() => {
                     const cardContainer = document.getElementById('magic-card-container');
                     document.getElementById('res-symbol').innerText = forceSymbol;
@@ -596,7 +605,7 @@
                     gsap.from('#magic-card', { y: 80, opacity: 0, scale: 0.8, duration: 1.4, ease: "elastic.out(1, 0.5)" });
                 }, 16000);
             }
-
+            
             function createSparkle() {
                 const s = document.createElement('div');
                 s.style.position = 'fixed';
@@ -612,18 +621,15 @@
                 document.body.appendChild(s);
                 gsap.to(s, { y: -100, scale: 0.2, opacity: 0, duration: 1.8, onComplete: () => s.remove() });
             }
-
-            // ---------- Start everything ----------
+            
             window.onload = () => {
                 init3D();
-                initCamera(); // immediately ask for camera
+                initCamera();
                 const savedStars = localStorage.getItem('stars');
                 if(savedStars) document.getElementById('star-count').innerText = savedStars;
             };
             
-            startBtn.onclick = () => {
-                nextStep();
-            };
+            startBtn.onclick = () => { nextStep(); };
             
             window.addEventListener('resize', () => {
                 if (camera) {

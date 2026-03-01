@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brahmand Darbar – आपका चेहरा ही कुंजी है</title>
+    
+    <!-- Tailwind, Three.js, GSAP, html2canvas, MediaPipe -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@400;700&family=Tiro+Devanagari+Hindi&display=swap" rel="stylesheet">
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --bg-deep: #02020a; --accent-glow: #4f46e5; --magic-pink: #ec4899; --neon: #00f2ff; }
+        
+        body {
+            background: var(--bg-deep);
+            font-family: 'Poppins', 'Tiro Devanagari Hindi', serif;
+            color: #e0e7ff;
+            user-select: none;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        /* 3D background canvas */
+        #canvas-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        /* main UI layer */
+        .ui-main-wrapper {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 50px;
+            scroll-behavior: smooth;
+        }
+        
+        .glass {
+            background: rgba(10, 20, 40, 0.8);
+            backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(79, 70, 229, 0.3);
+        }
+        
+        .magic-btn {
+            background: linear-gradient(145deg, #4338ca, #b91c73);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(236, 72, 153, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        .magic-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 80%);
+            opacity: 0;
+            transition: opacity 0.6s;
+        }
+        .magic-btn:hover::after { opacity: 1; }
+        .magic-btn:active { transform: scale(0.96); }
+        
+        .chat-bubble {
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 32px 32px 32px 8px;
+            padding: 22px 26px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 30px #4f46e5;
+            max-width: 90%;
+            font-weight: 600;
+            line-height: 1.7;
+            font-size: 1.1rem;
+            border-left: 6px solid #ec4899;
+        }
+        
+        .symbol-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.15);
+        }
+        
+        .symbol-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 5px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.03);
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        
+        .symbol-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #ec4899;
+            transform: scale(1.02);
+        }
+        
+        #magic-card-container {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            width: 90%;
+            max-width: 420px;
+            animation: cardGlow 2s infinite alternate;
+        }
+        
+        @keyframes cardGlow {
+            0% { filter: drop-shadow(0 0 10px #ec4899); }
+            100% { filter: drop-shadow(0 0 30px #4f46e5); }
+        }
+        
+        .vision-line {
+            opacity: 0;
+            transform: translateY(25px) scale(0.95);
+            transition: all 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+            background: rgba(255, 255, 255, 0.03);
+            padding: 18px 20px;
+            border-radius: 30px;
+            border-left: 6px solid #ec4899;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin: 15px 0;
+            font-size: 1.2rem;
+        }
+        .vision-line.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        
+        .thinking-dots span {
+            animation: bounce 0.8s infinite alternate;
+            display: inline-block;
+            font-size: 2rem;
+        }
+        .thinking-dots span:nth-child(2) { animation-delay: 0.3s; }
+        .thinking-dots span:nth-child(3) { animation-delay: 0.6s; }
+        @keyframes bounce { to { transform: translateY(-10px); opacity: 0.4; } }
+        
+        ::-webkit-scrollbar { width: 8px; background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ec4899; border-radius: 20px; }
+        
+        /* Floating PIP window (always visible) */
+        #pip-window {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 2px solid var(--neon);
+            box-shadow: 0 0 20px rgba(0,242,255,0.7), 0 0 40px #4f46e5;
+            overflow: hidden;
+            z-index: 1000;
+            background: #000;
+            display: none; /* will show after camera starts */
+        }
+        
+        #pip-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* mirror */
+        }
+        
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--neon);
+            box-shadow: 0 0 10px var(--neon);
+            top: 0;
+            animation: scanMove 3s infinite linear;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        @keyframes scanMove {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+        
+        .scan-progress {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 15px 0 5px;
+        }
+        .scan-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4f46e5, #ec4899);
+            transition: width 0.3s;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--neon);
+            border-radius: 30px;
+            color: var(--neon);
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        /* Audio hidden */
+        #magic-sound { display: none; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <!-- Floating PIP Camera (always on after grant) -->
+    <div id="pip-window">
+        <div class="scan-line"></div>
+        <video id="input-video" class="hidden" playsinline></video>
+        <canvas id="pip-canvas"></canvas>
+    </div>
+    
+    <div class="ui-main-wrapper" id="scroll-wrapper">
+        <!-- Top Navigation -->
+        <div class="w-full max-w-2xl flex justify-between items-center p-6 sticky top-0 z-50 pointer-events-auto">
+            <div class="glass px-5 py-2 flex items-center gap-2 border border-indigo-500/30">
+                <span class="text-yellow-400 text-xl">✨</span>
+                <span id="star-count" class="font-bold text-indigo-200">250</span>
+            </div>
+            <h1 class="text-xl font-bold tracking-tighter bg-gradient-to-r from-indigo-300 to-pink-300 bg-clip-text text-transparent">
+                ॐ BRAHMAND DARBAR
+            </h1>
+            <div class="glass px-5 py-2 border border-pink-500/30">
+                <span class="text-[12px] uppercase font-bold text-pink-400 tracking-widest">Neural AI</span>
+            </div>
+        </div>
+        
+        <!-- Main Container -->
+        <div class="w-full max-w-lg flex flex-col items-center gap-8 px-4 mt-6 pointer-events-auto">
+            <div id="genie-ui" class="w-full flex flex-col items-center gap-6">
+                <div id="genie-chat" class="chat-bubble shadow-2xl">
+                    नमस्ते! मैं ब्रह्मांडीय AI हूँ। सबसे पहले कैमरा अनुमति दें...
+                </div>
+                <div id="options-container" class="w-full flex flex-col gap-4">
+                    <button id="start-btn" class="magic-btn py-5 rounded-2xl font-bold text-lg uppercase tracking-wider text-white">
+                        जादू शुरू करें ➤
+                    </button>
+                </div>
+            </div>
+            <div id="scroll-hint" class="text-[10px] opacity-40 uppercase tracking-[0.2em] mt-4 hidden">
+                नीचे स्क्रॉल करें चार्ट देखने के लिए ↓
+            </div>
+        </div>
+    </div>
+    
+    <!-- Final Magic Card -->
+    <div id="magic-card-container">
+        <div id="magic-card" class="glass p-8 border-t-4 border-pink-500 flex flex-col items-center text-center gap-6">
+            <div id="res-symbol" class="text-8xl drop-shadow-[0_0_30px_rgba(236,72,153,0.7)] animate-pulse">🔮</div>
+            <div>
+                <h2 class="text-2xl font-bold text-white mb-2" id="res-title">ब्रह्मांड की दृष्टि</h2>
+                <p id="res-desc" class="text-indigo-200 text-base italic font-medium leading-relaxed"></p>
+            </div>
+            <div class="w-full h-[1px] bg-gradient-to-r from-transparent via-pink-500 to-transparent"></div>
+            <button onclick="location.reload()" class="magic-btn px-10 py-3 rounded-full text-sm font-bold text-white uppercase tracking-widest">पुनर्जन्म (Restart)</button>
+        </div>
+    </div>
+    
+    <audio id="magic-sound" preload="auto">
+        <source src="https://image2url.com/r2/default/audio/1772192486926-093249e7-8b43-4e22-8f80-79efaf84e698.mp3" type="audio/mpeg">
+    </audio>
+    
+    <script>
+        (function() {
+            // ---------- SYMBOL DESCRIPTIONS (shortened for brevity, full set works) ----------
+            const symbolDescriptions = {
+                "💎": ["मिट्टी के सीने में दबी कोई सख्त जान...", "जैसे रोशनी का कोई कतरा...", "अंधेरे में एक ऐसी चमक...", "एक अनमोल एहसास...", "तुमने सोचा था हीरा 💎।"],
+                "🔥": ["हवा में बेचैनी...", "हथेलियों में गर्माहट...", "अंधेरे को चीरती लकीर...", "ऊर्जा जो नया जन्म दे...", "तुम आग 🔥 में खोए थे।"],
+                "🌙": ["गहरी खामोशी...", "चाँदनी की ठंडी परत...", "सुकून भरी परछाईं...", "शांत झील में चेहरा...", "तुमने चाँद 🌙 सोचा था।"],
+                "⭐": ["दूर एक हलचल...", "उम्मीद जाग रही...", "अकेली रौशनी...", "पलकों में टिमटिमाहट...", "वो सितारा ⭐ था।"],
+                "🌊": ["नमकीन सी महक...", "गहरा उतार-चढ़ाव...", "बहती हुई...", "नीली गहराई...", "तुम समुद्र 🌊 में थे।"],
+                "🕉️": ["शून्य से कंपन...", "बिन बोले ध्वनि...", "पवित्रता का एहसास...", "चक्र स्थिर...", "तुम ॐ 🕉️ में खोए थे।"],
+                "🔱": ["तीन दिशाओं से शक्ति...", "विनाश और सृजन...", "प्राचीन गर्जना...", "काल को वश...", "तुम्हारे मन में त्रिशूल 🔱 था।"]
+            };
+            const symbols = Object.keys(symbolDescriptions);
+            let forceSymbol = symbols[0]; // will be set during chart
+
+            // ---------- Number trick states ----------
+            const states = [
+                { msg: "अपने मन में 10 से 99 के बीच कोई भी एक नंबर सोचें। धीरे-धीरे...", btn: "सोच लिया!" },
+                { msg: "अब उस नंबर के दोनों अंकों को जोड़ें, और जो आए उसे अपने मुख्य नंबर से घटा दें। (जैसे 25 → 2+5=7, 25-7=18)", btn: "कर लिया, आगे क्या?" },
+                { msg: "अब नीचे दिए गए 'नक्षत्र चार्ट' को ध्यान से देखें। अपने आए हुए नंबर के सामने वाले सिंबल को याद रखें।", showChart: true, btn: "याद कर लिया!" },
+                { msg: "अब उस सिंबल की कल्पना करें। कैमरे में सीधे देखें – मैं 8 सेकंड आपके चेहरे को स्कैन करूंगा।", btn: "AI, मेरा सच बताओ!" }
+            ];
+            let currentState = -1;
+
+            // ---------- UI elements ----------
+            const genieChat = document.getElementById('genie-chat');
+            const optionsContainer = document.getElementById('options-container');
+            const startBtn = document.getElementById('start-btn');
+            const scrollWrapper = document.getElementById('scroll-wrapper');
+            const scrollHint = document.getElementById('scroll-hint');
+            const magicSound = document.getElementById('magic-sound');
+            const pipWindow = document.getElementById('pip-window');
+            const videoElement = document.getElementById('input-video');
+            const canvasElement = document.getElementById('pip-canvas');
+            const canvasCtx = canvasElement.getContext('2d');
+
+            // ---------- Face scan globals ----------
+            let faceMesh = null;
+            let cameraObj = null;
+            let scanTimer = null;
+            let faceDetectedStartTime = null;
+            const REQUIRED_SECONDS = 8;
+            let scanSuccessful = false;
+            let scanningActive = false; // becomes true only at final step
+
+            // ---------- Three.js background ----------
+            let scene, camera, renderer, crystal, particles;
+            function init3D() {
+                scene = new THREE.Scene();
+                camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.getElementById('canvas-container').appendChild(renderer.domElement);
+                const geometry = new THREE.IcosahedronGeometry(15, 1);
+                const material = new THREE.MeshPhongMaterial({ color: 0x312e81, wireframe: true, transparent: true, opacity: 0.2 });
+                crystal = new THREE.Mesh(geometry, material);
+                scene.add(crystal);
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+                scene.add(ambientLight);
+                const light = new THREE.PointLight(0x6366f1, 1, 100);
+                light.position.set(10, 10, 10);
+                scene.add(light);
+                const pGeo = new THREE.BufferGeometry();
+                const pos = new Float32Array(3000 * 3);
+                for(let i=0; i<3000*3; i++) pos[i] = (Math.random()-0.5)*200;
+                pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                particles = new THREE.Points(pGeo, new THREE.PointsMaterial({size: 0.2, color: 0x4f46e5, transparent: true, opacity: 0.5}));
+                scene.add(particles);
+                camera.position.z = 40;
+                animate();
+            }
+            function animate() {
+                requestAnimationFrame(animate);
+                crystal.rotation.y += 0.002;
+                particles.rotation.y += 0.0005;
+                renderer.render(scene, camera);
+            }
+
+            // ---------- Start camera immediately on page load ----------
+            async function initCamera() {
+                try {
+                    // Request permission and show PIP
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoElement.srcObject = stream;
+                    pipWindow.style.display = 'block';
+                    
+                    // Initialize FaceMesh
+                    faceMesh = new FaceMesh({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                    });
+                    faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: true,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+                    faceMesh.onResults(onFaceResults);
+                    
+                    // Start camera processing
+                    cameraObj = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (faceMesh) await faceMesh.send({image: videoElement});
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                    cameraObj.start();
+                    
+                    genieChat.innerText = "कैमरा चालू है। अब 'जादू शुरू करें' दबाएँ।";
+                } catch (err) {
+                    console.error(err);
+                    genieChat.innerText = "❌ कैमरा नहीं चल पाया। कृपया अनुमति दें और पेज रिफ्रेश करें।";
+                    optionsContainer.innerHTML = `<button onclick="location.reload()" class="magic-btn py-4 px-8">पुनः प्रयास करें</button>`;
+                }
+            }
+
+            // ---------- Face results handler (draws mesh) ----------
+            function onFaceResults(results) {
+                if (!canvasElement || !canvasCtx) return;
+                
+                // Set canvas dimensions once
+                if (canvasElement.width !== (results.image?.width || 640)) {
+                    canvasElement.width = results.image?.width || 640;
+                    canvasElement.height = results.image?.height || 480;
+                }
+                
+                canvasCtx.save();
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                if (results.image) {
+                    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                }
+                
+                // Draw mesh if face detected
+                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    for (const landmarks of results.multiFaceLandmarks) {
+                        drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#00f2ff33', lineWidth: 0.5});
+                        drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#00f2ff', lineWidth: 1});
+                        drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#00f2ff', lineWidth: 1});
+                        drawConnectors(canvasCtx, landmarks, FACEMESH_LIPS, {color: '#00f2ff', lineWidth: 1});
+                    }
+                    
+                    // If we are in scanning mode (final step), update timer
+                    if (scanningActive) {
+                        const progressFill = document.getElementById('scan-progress-fill');
+                        const scanHint = document.getElementById('scan-hint');
+                        
+                        if (faceDetectedStartTime === null) {
+                            faceDetectedStartTime = Date.now();
+                        } else {
+                            const elapsed = (Date.now() - faceDetectedStartTime) / 1000;
+                            const percent = Math.min(100, (elapsed / REQUIRED_SECONDS) * 100);
+                            if (progressFill) progressFill.style.width = percent + '%';
+                            
+                            if (elapsed >= REQUIRED_SECONDS && !scanSuccessful) {
+                                scanSuccessful = true;
+                                scanningActive = false;
+                                if (scanHint) scanHint.innerText = "✅ स्कैन पूरा! रहस्य खुल रहा है...";
+                                // Proceed to magical reveal
+                                proceedToReveal();
+                            } else {
+                                if (scanHint) scanHint.innerText = `स्थिर रहें... ${elapsed.toFixed(1)}/${REQUIRED_SECONDS} सेकंड`;
+                            }
+                        }
+                    }
+                } else {
+                    // No face detected
+                    if (scanningActive) {
+                        // Reset timer
+                        faceDetectedStartTime = null;
+                        const progressFill = document.getElementById('scan-progress-fill');
+                        if (progressFill) progressFill.style.width = '0%';
+                        const scanHint = document.getElementById('scan-hint');
+                        if (scanHint) scanHint.innerText = "❌ चेहरा नहीं दिखा, कैमरे की ओर देखें";
+                    }
+                }
+                canvasCtx.restore();
+            }
+
+            // ---------- UI flow: next step ----------
+            function nextStep() {
+                currentState++;
+                if (currentState < states.length) {
+                    const step = states[currentState];
+                    genieChat.innerText = step.msg;
+                    optionsContainer.innerHTML = '';
+                    
+                    if (step.showChart) {
+                        scrollHint.classList.remove('hidden');
+                        forceSymbol = symbols[Math.floor(Math.random() * symbols.length)];
+                        const grid = document.createElement('div');
+                        grid.className = 'symbol-grid border border-white/5 mb-6';
+                        for(let i=1; i<=99; i++) {
+                            const item = document.createElement('div');
+                            item.className = 'symbol-item';
+                            // All multiples of 9 get the forced symbol
+                            const sym = (i % 9 === 0) ? forceSymbol : symbols[Math.floor(Math.random() * symbols.length)];
+                            item.innerHTML = `<span class="text-[9px] font-bold text-indigo-400/60">${i}</span><span class="text-lg">${sym}</span>`;
+                            grid.appendChild(item);
+                        }
+                        optionsContainer.appendChild(grid);
+                        setTimeout(() => { scrollWrapper.scrollTo({ top: genieChat.offsetTop - 20, behavior: 'smooth' }); }, 100);
+                    } else {
+                        scrollHint.classList.add('hidden');
+                    }
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'magic-btn py-4 px-8 rounded-2xl font-bold text-white w-full text-sm uppercase tracking-widest';
+                    btn.innerText = step.btn;
+                    btn.onclick = () => { createSparkle(); nextStep(); };
+                    optionsContainer.appendChild(btn);
+                    gsap.fromTo(genieChat, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 });
+                } else {
+                    // Final step: start face scan timer
+                    startFinalScan();
+                }
+            }
+
+            function startFinalScan() {
+                // Update UI to show progress
+                genieChat.innerText = "अब 8 सेकंड तक कैमरे में सीधे देखें...";
+                optionsContainer.innerHTML = `
+                    <div class="flex flex-col items-center gap-4 py-6 w-full">
+                        <div class="scan-status text-pink-300 font-bold">चेहरा स्कैन हो रहा है...</div>
+                        <div class="scan-progress w-full max-w-xs">
+                            <div id="scan-progress-fill" class="scan-progress-fill" style="width:0%"></div>
+                        </div>
+                        <div class="text-xs text-indigo-300 mt-2" id="scan-hint">कैमरे की ओर सीधे देखें, 8 सेकंड चाहिए</div>
+                        <button id="cancel-scan" class="magic-btn py-2 px-6 rounded-full text-xs mt-4">रद्द करें</button>
+                    </div>
+                `;
+                document.getElementById('cancel-scan').onclick = () => {
+                    scanningActive = false;
+                    optionsContainer.innerHTML = `<div class="text-pink-400 p-4">स्कैन रद्द। पुनः प्रयास के लिए पेज रिफ्रेश करें।</div>`;
+                    genieChat.innerText = "जादू टूट गया...";
+                };
+                
+                // Reset timer variables
+                faceDetectedStartTime = null;
+                scanSuccessful = false;
+                scanningActive = true;
+            }
+
+            function proceedToReveal() {
+                // Hide scanning UI, show visionary lines
+                const allLines = symbolDescriptions[forceSymbol] || [
+                    "एक धुंधली सी आकृति...", "यह तुम हो...", "थोड़ा और ध्यान...", "यह बहुत पुराना है...",
+                    "अब बिल्कुल साफ़ – तुमने यही सोचा था: " + forceSymbol
+                ];
+                const firstLineIndex = Math.floor(Math.random() * 4);
+                const linesToShow = [allLines[firstLineIndex], allLines[4]];
+                
+                // Create vision container
+                const visionDiv = document.createElement('div');
+                visionDiv.id = "vision-container";
+                visionDiv.className = "w-full max-w-md glass p-8 rounded-3xl mx-auto space-y-6 text-left border border-indigo-500/30";
+                optionsContainer.innerHTML = '';
+                optionsContainer.appendChild(visionDiv);
+                
+                // First line after 2 sec
+                setTimeout(() => {
+                    const lineEl = document.createElement('div');
+                    lineEl.className = `vision-line flex gap-4 items-start text-xl leading-relaxed`;
+                    lineEl.innerHTML = `<span class="text-4xl mt-1 text-pink-400">✨</span><span class="text-indigo-100 font-light">${linesToShow[0]}</span>`;
+                    visionDiv.appendChild(lineEl);
+                    setTimeout(() => lineEl.classList.add('visible'), 100);
+                    createSparkle();
+                }, 2000);
+                
+                // Second line after 10 more sec
+                setTimeout(() => {
+                    const lineEl = document.createElement('div');
+                    lineEl.className = `vision-line flex gap-4 items-start text-xl leading-relaxed`;
+                    lineEl.innerHTML = `<span class="text-4xl mt-1 text-pink-400">✨</span><span class="text-indigo-100 font-light">${linesToShow[1]}</span>`;
+                    visionDiv.appendChild(lineEl);
+                    setTimeout(() => lineEl.classList.add('visible'), 100);
+                    try { magicSound.play(); } catch(e) {}
+                    for (let i=0; i<10; i++) setTimeout(createSparkle, i*80);
+                }, 12000);
+                
+                // Final symbol after another 2 sec
+                setTimeout(() => {
+                    const finalLine = document.createElement('div');
+                    finalLine.className = "vision-line text-center text-pink-400 font-bold text-3xl pt-8 border-t-2 border-white/20 mt-6";
+                    finalLine.innerHTML = `🔮  "${forceSymbol}"  🔮`;
+                    visionDiv.appendChild(finalLine);
+                    setTimeout(() => finalLine.classList.add('visible'), 100);
+                    try { magicSound.play(); } catch(e) {}
+                    for (let i=0; i<30; i++) setTimeout(createSparkle, i*50);
+                }, 14000);
+                
+                // Final magic card
+                setTimeout(() => {
+                    const cardContainer = document.getElementById('magic-card-container');
+                    document.getElementById('res-symbol').innerText = forceSymbol;
+                    document.getElementById('res-desc').innerHTML = `ब्रह्मांड ने साफ देख लिया!<br><span class="text-pink-300 text-xl">${allLines[4]}</span><br><br>यही तुम्हारे मन में बसा था।`;
+                    cardContainer.style.display = 'block';
+                    gsap.from('#magic-card', { y: 80, opacity: 0, scale: 0.8, duration: 1.4, ease: "elastic.out(1, 0.5)" });
+                }, 16000);
+            }
+
+            function createSparkle() {
+                const s = document.createElement('div');
+                s.style.position = 'fixed';
+                s.style.left = Math.random() * 100 + 'vw';
+                s.style.top = Math.random() * 100 + 'vh';
+                s.style.width = Math.random() * 8 + 4 + 'px';
+                s.style.height = s.style.width;
+                s.style.background = `hsl(${Math.random() * 60 + 280}, 100%, 70%)`;
+                s.style.borderRadius = '50%';
+                s.style.boxShadow = '0 0 30px currentColor';
+                s.style.zIndex = '999';
+                s.style.pointerEvents = 'none';
+                document.body.appendChild(s);
+                gsap.to(s, { y: -100, scale: 0.2, opacity: 0, duration: 1.8, onComplete: () => s.remove() });
+            }
+
+            // ---------- Start everything ----------
+            window.onload = () => {
+                init3D();
+                initCamera(); // immediately ask for camera
+                const savedStars = localStorage.getItem('stars');
+                if(savedStars) document.getElementById('star-count').innerText = savedStars;
+            };
+            
+            startBtn.onclick = () => {
+                nextStep();
+            };
+            
+            window.addEventListener('resize', () => {
+                if (camera) {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -358,7 +358,7 @@
                 { msg: "अपने मन में 10 से 99 के बीच कोई भी एक नंबर सोचें। धीरे-धीरे...", btn: "सोच लिया!" },
                 { msg: "अब उस नंबर के दोनों अंकों को जोड़ें, और जो आए उसे अपने मुख्य नंबर से घटा दें। (जैसे 25 → 2+5=7, 25-7=18)", btn: "कर लिया, आगे क्या?" },
                 { msg: "अब नीचे दिए गए 'नक्षत्र चार्ट' को ध्यान से देखें। अपने आए हुए नंबर के सामने वाले सिंबल को याद रखें।", showChart: true, btn: "याद कर लिया!" },
-                { msg: "अब उस सिंबल की कल्पना करें। कैमरे में सीधे देखें – मैं 8 सेकंड आपके चेहरे को स्कैन करूंगा।", btn: "AI, मेरा सच बताओ!" }
+                { msg: "अब उस सिंबल की कल्पना करें। कैमरे में सीधे देखें – मैं 20 सेकंड आपके चेहरे को स्कैन करूंगा।", btn: "AI, मेरा सच बताओ!" }
             ];
             let currentState = -1;
             
@@ -533,14 +533,14 @@
             }
             
             function startFinalScan() {
-                genieChat.innerText = "अब 8 सेकंड तक कैमरे में सीधे देखें...";
+                genieChat.innerText = "अब 20 सेकंड तक कैमरे में सीधे देखें...";
                 optionsContainer.innerHTML = `
                     <div class="flex flex-col items-center gap-4 py-6 w-full">
                         <div class="scan-status text-pink-300 font-bold">चेहरा स्कैन हो रहा है...</div>
                         <div class="scan-progress w-full max-w-xs">
                             <div id="scan-progress-fill" class="scan-progress-fill" style="width:0%"></div>
                         </div>
-                        <div class="text-xs text-indigo-300 mt-2" id="scan-hint">कैमरे की ओर सीधे देखें, 8 सेकंड चाहिए</div>
+                        <div class="text-xs text-indigo-300 mt-2" id="scan-hint">कैमरे की ओर सीधे देखें,  सेकंड चाहिए</div>
                         <button id="cancel-scan" class="magic-btn py-2 px-6 rounded-full text-xs mt-4">रद्द करें</button>
                     </div>
                 `;
